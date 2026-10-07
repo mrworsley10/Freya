@@ -6,7 +6,7 @@ import re
 import urllib3
 
 # --- PAGE SETUP ---
-st.set_page_config(page_title="Freya's PB Tracker", page_icon="🌟", layout="centered")
+st.set_page_config(page_title="Havana's PB Tracker", page_icon="🌟", layout="centered")
 
 # --- CUSTOM CSS FOR A BEAUTIFUL MOBILE UI ---
 st.markdown("""
@@ -15,6 +15,14 @@ st.markdown("""
     .header-box { background: linear-gradient(135deg, #3b82f6 0%, #1e293b 100%); padding: 25px; border-radius: 15px; text-align: center; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border-bottom: 4px solid #facc15; }
     .header-title { font-size: 2.2rem; font-weight: 900; color: #ffffff; margin: 0; line-height: 1.2; }
     .header-sub { font-size: 1rem; color: #cbd5e1; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+    
+    /* Spotlight CSS */
+    .spotlight-box { background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); padding: 20px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border-left: 5px solid #fde047; }
+    .spotlight-title { font-size: 1.4rem; font-weight: 900; color: #ffffff; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;}
+    .spotlight-item { background: rgba(0,0,0,0.25); padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.1);}
+    .spotlight-evt { font-weight: 800; color: #fff; font-size: 1.1rem; }
+    .spotlight-gap { color: #fef08a; font-weight: 700; font-size: 0.95rem; text-align: right;}
+
     .pb-card { background-color: #1e293b; border-radius: 12px; padding: 18px; margin-bottom: 16px; border-left: 5px solid #3b82f6; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); }
     .pb-card.qualified-county { border-left-color: #facc15; }
     .pb-card.qualified-regional { border-left-color: #4ade80; }
@@ -35,9 +43,7 @@ st.markdown("""
 def extract_standard_event(event_str):
     t = str(event_str).lower()
     t = t.replace('breaststroke', 'breast').replace('breaststrok', 'breast')
-    t = t.replace('freestyle', 'free')
-    t = t.replace('backstroke', 'back')
-    t = t.replace('butterfly', 'fly')
+    t = t.replace('freestyle', 'free').replace('backstroke', 'back').replace('butterfly', 'fly')
     t = t.replace('individual medley', 'im').replace('ind medley', 'im').replace('ind. medley', 'im')
     t = t.replace('individual', 'im')
     
@@ -67,14 +73,11 @@ def time_to_seconds(t_str):
 def seconds_to_time(sec):
     return "N/A" if sec is None or sec < 0 else (f"{int(sec // 60)}:{sec % 60:05.2f}" if sec >= 60 else f"{sec % 60:05.2f}")
 
-# --- WEB SCRAPER FOR SWIM ENGLAND BIOGS SUMMARY TABLE ---
+# --- WEB SCRAPER ---
 @st.cache_data(ttl=3600) 
 def scrape_swim_england_pbs(url):
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-    }
+    headers = {'User-Agent': 'Mozilla/5.0', 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'}
     
     try:
         resp = requests.get(url, headers=headers, verify=False, timeout=15)
@@ -82,18 +85,15 @@ def scrape_swim_england_pbs(url):
         
         all_swims = []
         for table in soup.find_all('table'):
-            sc_idx, lc_idx = -1, -1
+            sc_idx = lc_idx = -1
             for tr in table.find_all('tr'):
                 cells = [td.get_text(strip=True) for td in tr.find_all(['td', 'th'])]
                 if not cells: continue
-                
                 if sc_idx == -1:
                     for i, c in enumerate(cells):
-                        c_lower = c.lower()
-                        if "short course pb" in c_lower: sc_idx = i
-                        elif "long course pb" in c_lower: lc_idx = i
+                        if "short course pb" in c.lower(): sc_idx = i
+                        elif "long course pb" in c.lower(): lc_idx = i
                     continue 
-                
                 if sc_idx == -1 or lc_idx == -1: break
                 
                 event_name = cells[0]
@@ -105,9 +105,7 @@ def scrape_swim_england_pbs(url):
                     sc_time, lc_time = cells[sc_idx], cells[lc_idx]
                     if sc_time and sc_time != '.': all_swims.append({"Event": clean_evt, "Course": "25m", "Time": sc_time})
                     if lc_time and lc_time != '.': all_swims.append({"Event": clean_evt, "Course": "50m", "Time": lc_time})
-            
             if sc_idx != -1: break
-            
         return pd.DataFrame(all_swims)
     except Exception as e:
         st.error(f"Failed to fetch PB times: {e}")
@@ -119,7 +117,7 @@ URL = "https://www.swimmingresults.org/biogs/biogs_details.php?tiref=1804563"
 
 st.markdown("""
 <div class="header-box">
-    <div class="header-title">🌟 Freya's Dashboard</div>
+    <div class="header-title">🌟 Havana's Dashboard</div>
     <div class="header-sub">Official PB Tracker & Targets</div>
 </div>
 """, unsafe_allow_html=True)
@@ -138,7 +136,6 @@ try:
         elif 'event' in c_lower: rename_map[c_orig] = 'event'
         elif 'age' in c_lower: rename_map[c_orig] = 'age'
         elif 'gender' in c_lower or 'sex' in c_lower: rename_map[c_orig] = 'gender'
-        
     target_df.rename(columns=rename_map, inplace=True)
     if "event" in target_df.columns: target_df["event"] = target_df["event"].apply(extract_standard_event)
     has_targets = True
@@ -159,6 +156,10 @@ if view_df.empty:
     st.info(f"No PB times found for the {course_filter} pool.")
     st.stop()
 
+# --- PRE-PROCESS DATA FOR SPOTLIGHT ---
+close_targets = []
+dashboard_cards = []
+
 for _, row in view_df.iterrows():
     evt, pb_str = row["Event"], row["Time"]
     pb_sec = time_to_seconds(pb_str)
@@ -175,8 +176,15 @@ for _, row in view_df.iterrows():
             r_str = str(r_val) if pd.notna(r_val) and str(r_val).lower() != "nan" else "N/A"
             c_sec, r_sec = time_to_seconds(c_str), time_to_seconds(r_str)
             
+            # Check qualifications
             if r_sec and pb_sec and pb_sec <= r_sec: status_class, status_badge = "qualified-regional", "🏆 REGIONAL QUALIFIER"
             elif c_sec and pb_sec and pb_sec <= c_sec: status_class, status_badge = "qualified-county", "🌟 COUNTY QUALIFIER"
+            
+            # Track missed targets for Spotlight
+            if c_sec and pb_sec > c_sec: 
+                close_targets.append({"Event": evt, "Level": "County", "Gap": pb_sec - c_sec, "Target": c_str})
+            if r_sec and pb_sec > r_sec: 
+                close_targets.append({"Event": evt, "Level": "Regional", "Gap": pb_sec - r_sec, "Target": r_str})
 
     def get_gap_html(pb, target):
         if not pb or not target: return ""
@@ -187,10 +195,31 @@ for _, row in view_df.iterrows():
     c_gap, r_gap = get_gap_html(pb_sec, c_sec), get_gap_html(pb_sec, r_sec)
     badge_html = f"<span class='badge {'achieved' if status_class else ''}'>{status_badge}</span>"
 
-    st.markdown(f"""<div class="pb-card {status_class}">
+    card_html = f"""<div class="pb-card {status_class}">
 <div class="evt-title"><span>{evt}</span>{badge_html}</div>
 <div class="grid">
 <div class="box"><div class="box-label">Current PB</div><div class="box-val time-pb">{pb_str}</div></div>
 <div class="box"><div class="box-label">County Target</div><div class="box-val">{c_str}</div>{c_gap}</div>
 <div class="box"><div class="box-label">Regional Target</div><div class="box-val">{r_str}</div>{r_gap}</div>
-</div></div>""", unsafe_allow_html=True)
+</div></div>"""
+    dashboard_cards.append(card_html)
+
+# --- RENDER SPOTLIGHT ---
+if close_targets:
+    # Sort by the smallest gap (closest to hitting the target)
+    close_targets.sort(key=lambda x: x["Gap"])
+    top_3 = close_targets[:3]
+    
+    spotlight_html = """<div class="spotlight-box"><div class="spotlight-title">🔥 So Close! Next Best Targets</div>"""
+    for t in top_3:
+        spotlight_html += f"""
+        <div class="spotlight-item">
+            <div class="spotlight-evt">{t['Event']} ({t['Level']})</div>
+            <div class="spotlight-gap">Drop {seconds_to_time(t['Gap'])} to hit {t['Target']}</div>
+        </div>"""
+    spotlight_html += "</div>"
+    st.markdown(spotlight_html, unsafe_allow_html=True)
+
+# --- RENDER DASHBOARD CARDS ---
+for card in dashboard_cards:
+    st.markdown(card, unsafe_allow_html=True)

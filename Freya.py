@@ -6,7 +6,7 @@ import re
 import urllib3
 
 # --- PAGE SETUP ---
-st.set_page_config(page_title="Havana's PB Tracker", page_icon="🌟", layout="centered")
+st.set_page_config(page_title="Freya's PB Tracker", page_icon="🌟", layout="centered")
 
 # --- CUSTOM CSS FOR A BEAUTIFUL MOBILE UI ---
 st.markdown("""
@@ -117,7 +117,7 @@ URL = "https://www.swimmingresults.org/biogs/biogs_details.php?tiref=1804563"
 
 st.markdown("""
 <div class="header-box">
-    <div class="header-title">🌟 Havana's Dashboard</div>
+    <div class="header-title">🌟 Freya's Dashboard</div>
     <div class="header-sub">Official PB Tracker & Targets</div>
 </div>
 """, unsafe_allow_html=True)
